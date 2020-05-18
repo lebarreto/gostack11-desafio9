@@ -32,20 +32,26 @@ class CreateProductService {
   ) {}
 
   public async execute({ customer_id, products }: IRequest): Promise<Order> {
-    // const checkIfCustomerExists = await this.customersRepository.findById(
-    //   customer_id,
-    // );
-    // if (!checkIfCustomerExists) {
-    //   throw new AppError('This customer does not exists.', 400);
-    // }
-    // const checkIfProductExists = await this.productsRepository.findByName(
-    //   products[0].name,
-    // );
-    // if (!checkIfProductExists) {
-    //   throw new AppError('This product does not exists.', 400);
-    // }
-    // const product = await this.ordersRepository.create({
-    // });
+    const checkIfCustomerExists = await this.customersRepository.findById(
+      customer_id,
+    );
+
+    if (!checkIfCustomerExists) {
+      throw new AppError('This customer does not exists.', 400);
+    }
+
+    const checkIfProductExists = await this.productsRepository.findAllById(
+      products,
+    );
+
+    if (!checkIfProductExists) {
+      throw new AppError('This product does not exists.', 400);
+    }
+
+    await this.productsRepository.updateQuantity(products);
+
+    // const product = await this.ordersRepository.create(customer_id, products);
+
     // return product;
   }
 }

@@ -10,7 +10,7 @@ import IOrdersRepository from '../repositories/IOrdersRepository';
 interface IProduct {
   id: string;
   quantity: number;
-  name: string;
+  name?: string;
 }
 
 interface IRequest {
@@ -40,19 +40,55 @@ class CreateProductService {
       throw new AppError('This customer does not exists.', 400);
     }
 
+    const requestedProductIds = products.map(requestedProduct => ({
+      id: requestedProduct.id,
+    }));
+
     const checkIfProductExists = await this.productsRepository.findAllById(
-      products,
+      requestedProductIds,
     );
 
     if (!checkIfProductExists) {
       throw new AppError('This product does not exists.', 400);
     }
 
-    await this.productsRepository.updateQuantity(products);
+    const checkProductAvailability =
+      products.length === checkIfProductExists.length;
 
-    // const product = await this.ordersRepository.create(customer_id, products);
+    if (!checkProductAvailability) {
+      throw new AppError('This product is not available.');
+    }
 
-    // return product;
+    const productUpdated: IProduct[] = [];
+
+    const order = checkIfProductExists.map(product => {
+      const i = products.findIndex(index => index.id === product.id);
+      const cart = products[i];
+
+      if (cart.quantity > product.quantity) {
+        throw new AppError('This product is not in the stock');
+      }
+
+      productUpdated.push({
+        id: product.id,
+        quantity: product.quantity - cart.quantity,
+      });
+
+      return {
+        product_id: product.id,
+        price: product.price,
+        quantity: cart.quantity,
+      };
+    });
+
+    await this.productsRepository.updateQuantity(productUpdated);
+
+    const product = await this.ordersRepository.create({
+      customer: checkIfCustomerExists,
+      products: order,
+    });
+
+    return product;
   }
 }
 

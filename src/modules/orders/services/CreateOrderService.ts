@@ -32,63 +32,40 @@ class CreateProductService {
   ) {}
 
   public async execute({ customer_id, products }: IRequest): Promise<Order> {
-    const checkIfCustomerExists = await this.customersRepository.findById(
-      customer_id,
+    const customer = await this.customersRepository.findById(customer_id);
+
+    if (!customer) {
+      throw new AppError('Customer not exists');
+    }
+
+    const productsArrayId = products.map(product => {
+      return { id: product.id };
+    });
+
+    const allProducts = await this.productsRepository.findAllById(
+      productsArrayId,
     );
 
-    if (!checkIfCustomerExists) {
-      throw new AppError('This customer does not exists.', 400);
-    }
-
-    const requestedProductIds = products.map(requestedProduct => ({
-      id: requestedProduct.id,
-    }));
-
-    const checkIfProductExists = await this.productsRepository.findAllById(
-      requestedProductIds,
-    );
-
-    if (!checkIfProductExists) {
-      throw new AppError('This product does not exists.', 400);
-    }
-
-    const checkProductAvailability =
-      products.length === checkIfProductExists.length;
-
-    if (!checkProductAvailability) {
-      throw new AppError('This product is not available.');
-    }
-
-    const productUpdated: IProduct[] = [];
-
-    const order = checkIfProductExists.map(product => {
-      const i = products.findIndex(index => index.id === product.id);
-      const cart = products[i];
-
-      if (cart.quantity > product.quantity) {
-        throw new AppError('This product is not in the stock');
-      }
-
-      productUpdated.push({
-        id: product.id,
-        quantity: product.quantity - cart.quantity,
-      });
+    const orderProducts = allProducts.map(product => {
+      const cart = products.find(
+        correctProdut => correctProdut.id === product.id,
+      );
 
       return {
         product_id: product.id,
         price: product.price,
-        quantity: cart.quantity,
+        quantity: cart?.quantity || 0,
       };
     });
 
-    await this.productsRepository.updateQuantity(productUpdated);
-
-    const product = await this.ordersRepository.create({
-      customer: checkIfCustomerExists,
-      products: order,
+    const order = await this.ordersRepository.create({
+      customer,
+      products: orderProducts,
     });
 
-    return product;
+    await this.productsRepository.updateQuantity(products);
+
+    return order;
   }
 }
 

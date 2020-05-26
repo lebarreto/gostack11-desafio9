@@ -24,12 +24,6 @@ class FindOrderService {
 
   public async execute({ id }: IRequest): Promise<Order | undefined> {
     const order = await this.ordersRepository.findById(id);
-    const customerId = order?.customer_id;
-
-    const customer = await this.customersRepository.findById(customerId || '');
-
-    delete customer?.created_at;
-    delete customer?.updated_at;
 
     return order;
   }
